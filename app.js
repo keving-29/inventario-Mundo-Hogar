@@ -13,6 +13,7 @@ let DB = {
   clientes:  [],
   deudores:  [],
   anticipos: [],
+  creditos:  [],
   proveedores: [],
   gastos:    [],
   traslados: [],
@@ -47,6 +48,9 @@ let gastoCategoriaSeleccionada = null;
 let productosDeudor   = [];
 let productosAnticipo = [];
 let editandoAnticipoId  = null;
+let productosCredito  = [];
+let editandoCreditoId  = null;
+let simulacionActual   = null;
 let proveedorAbonoActual = null;
 let inventarioMostrar = 10;
 const buscadoresProducto = {};
@@ -66,6 +70,7 @@ let clienteVenta = null;
 let clienteCotizacion = null;
 let clienteDeudor = null;
 let clienteAnticipo = null;
+let clienteCredito = null;
 let clienteModalContexto = null;
 
 // =============================================
@@ -208,6 +213,19 @@ async function sincronizar(ventasDias) {
       : [];
   }
 
+  if (Array.isArray(datos.Creditos)) {
+    DB.creditos = datos.Creditos.length > 1
+      ? datos.Creditos.slice(1).map(f => ({
+          id: String(f[0]), clienteId: String(f[1]||''), nombre: String(f[2]||''),
+          cedula: String(f[3]||''), telefono: String(f[4]||''), direccion: String(f[5]||''),
+          productos: parsearJSON(f[6]), monto: Number(f[7])||0,
+          nota: String(f[8]||''), fecha: isoAFechaCO(f[9]), hora: String(f[10]||''),
+          abonoInicial: Number(f[11])||0, numCuotas: Number(f[12])||1, frecuencia: String(f[13]||'mensual'),
+          cuotas: parsearJSON(f[14]), abonos: parsearJSON(f[15]), pagada: String(f[16])==='true'
+        }))
+      : [];
+  }
+
   if (datos.Proveedores && datos.Proveedores.length > 1) {
     DB.proveedores = datos.Proveedores.slice(1).map(f => ({
       id: String(f[0]), empresa: String(f[1]||''), fechaLlegadaPedido: isoAFechaCO(f[2]),
@@ -258,6 +276,8 @@ async function inicializarSheets() {
     await sheetsEscribir('append', 'Deudores', ['ID','ClienteId','Nombre','Cedula','Telefono','Direccion','Productos','Monto','Nota','Fecha','Hora','FechaLimite','Abonos','Pagada']);
   if (!datos.Anticipos || datos.Anticipos.length === 0)
     await sheetsEscribir('append', 'Anticipos', ['ID','ClienteId','Nombre','Cedula','Telefono','Direccion','Productos','Monto','Nota','Fecha','Hora','FechaLimite','Abonos','Pagada','Descontado']);
+  if (!datos.Creditos || datos.Creditos.length === 0)
+    await sheetsEscribir('append', 'Creditos', ['ID','ClienteId','Nombre','Cedula','Telefono','Direccion','Productos','Monto','Nota','Fecha','Hora','AbonoInicial','NumCuotas','Frecuencia','Cuotas','Abonos','Pagada']);
   if (!datos.Proveedores || datos.Proveedores.length === 0)
     await sheetsEscribir('append', 'Proveedores', ['ID','Empresa','FechaLlegadaPedido','Monto','NumeroCuotas','FechaLimite','Fecha','Hora','Abonos','Pagada']);
   if (!datos.Gastos || datos.Gastos.length === 0)
@@ -508,6 +528,14 @@ async function mostrarPanelInterno(panel) {
   if (panel === 'clientes')   renderClientes();
   if (panel === 'deudores')   renderDeudores();
   if (panel === 'anticipos')  renderAnticipos();
+  if (panel === 'creditos')   renderCreditos();
+  if (panel === 'simulacion') {
+    simulacionActual = null;
+    document.getElementById('simulacion-resultado').innerHTML = '';
+    ['sim-nombre','sim-monto','sim-inicial'].forEach(x => document.getElementById(x).value='');
+    document.getElementById('sim-cuotas').value = '1';
+    document.getElementById('sim-frecuencia').value = 'mensual';
+  }
   if (panel === 'proveedores') renderProveedores();
   if (panel === 'gastos')     renderGastos();
   // El sync automático solo trae ventas recientes; Historial/Reportes pueden
@@ -679,6 +707,8 @@ function prepararImpresion(idContenedor) {
   document.getElementById('deudor-print').classList.remove('activo');
   document.getElementById('proveedor-print').classList.remove('activo');
   document.getElementById('cotizacion-print').classList.remove('activo');
+  document.getElementById('credito-print').classList.remove('activo');
+  document.getElementById('simulacion-print').classList.remove('activo');
   document.getElementById(idContenedor).classList.add('activo');
 }
 
@@ -1110,6 +1140,7 @@ async function guardarCliente() {
   if (clienteModalContexto === 'venta') seleccionarClienteVenta(nuevo);
   else if (clienteModalContexto === 'deudor') seleccionarClienteDeudor(nuevo);
   else if (clienteModalContexto === 'anticipo') seleccionarClienteAnticipo(nuevo);
+  else if (clienteModalContexto === 'credito') seleccionarClienteCredito(nuevo);
   else if (clienteModalContexto === 'clientes') renderClientes();
   clienteModalContexto = null;
 }
@@ -1212,6 +1243,20 @@ function quitarClienteAnticipo() {
   document.getElementById('anticipo-cliente-seleccionado').classList.add('hidden');
 }
 
+function seleccionarClienteCredito(c) {
+  clienteCredito = c;
+  document.getElementById('credito-cliente-nombre').textContent = c.nombre;
+  document.getElementById('credito-cliente-detalle').textContent = `CC ${c.cedula}${c.telefono?' · Tel: '+c.telefono:''}`;
+  document.getElementById('credito-cliente-seleccionado').classList.remove('hidden');
+  document.getElementById('credito-cliente-buscar').value = '';
+  document.getElementById('credito-cliente-resultados').innerHTML = '';
+}
+
+function quitarClienteCredito() {
+  clienteCredito = null;
+  document.getElementById('credito-cliente-seleccionado').classList.add('hidden');
+}
+
 // =============================================
 // DEUDAS / ANTICIPOS — utilidades comunes
 // =============================================
@@ -1244,7 +1289,7 @@ async function registrarPagoDeuda(entidad, tipo, monto, metodoPago) {
   });
   const gananciaTotal = entidad.monto - costoTotal;
   const gananciaPago = entidad.monto>0 ? monto * (gananciaTotal/entidad.monto) : 0;
-  const etiqueta = tipo==='deudor' ? 'Abono deuda' : 'Anticipo';
+  const etiqueta = tipo==='deudor' ? 'Abono deuda' : tipo==='credito' ? 'Abono crédito' : 'Anticipo';
   const nombresProductos = productos.map(p=>p.productoNombre).join(', ');
 
   const itemsBoucher = productos.length
@@ -1349,7 +1394,7 @@ function imprimirBoucherDeuda(d, tipo) {
 function abrirModalAbono(id, tipo) {
   deudorAbonoActual = id;
   tipoAbonoActual = tipo;
-  const lista = tipo==='deudor' ? DB.deudores : DB.anticipos;
+  const lista = tipo==='deudor' ? DB.deudores : tipo==='credito' ? DB.creditos : DB.anticipos;
   const d = lista.find(x => x.id===id);
   if (!d) return;
   document.getElementById('abono-nombre').textContent = d.nombre;
@@ -1361,7 +1406,7 @@ function abrirModalAbono(id, tipo) {
 }
 
 async function guardarAbono() {
-  const lista = tipoAbonoActual==='deudor' ? DB.deudores : DB.anticipos;
+  const lista = tipoAbonoActual==='deudor' ? DB.deudores : tipoAbonoActual==='credito' ? DB.creditos : DB.anticipos;
   const d = lista.find(x => x.id===deudorAbonoActual);
   if (!d) return;
 
@@ -1386,6 +1431,8 @@ async function guardarAbono() {
 
     const guardadoEntidad = tipoAbonoActual==='deudor'
       ? await guardarDeudorEnSheet(d, false)
+      : tipoAbonoActual==='credito'
+      ? await guardarCreditoEnSheet(d, false)
       : await guardarAnticipoEnSheet(d, false);
 
     if (!guardadoEntidad) {
@@ -1398,12 +1445,14 @@ async function guardarAbono() {
 
     guardarLocal();
     cerrarModal('modal-abono');
-    if (tipoAbonoActual==='deudor') renderDeudores(); else renderAnticipos();
+    if (tipoAbonoActual==='deudor') renderDeudores();
+    else if (tipoAbonoActual==='credito') renderCreditos();
+    else renderAnticipos();
     renderDashboard();
 
     const completado = calcularSaldo(d)<=0;
     mostrarToast(completado
-      ? (tipoAbonoActual==='deudor'?'Deuda pagada completamente ✓':'Anticipo pagado completamente ✓')
+      ? (tipoAbonoActual==='deudor'?'Deuda pagada completamente ✓':tipoAbonoActual==='credito'?'Crédito pagado completamente ✓':'Anticipo pagado completamente ✓')
       : `Abono guardado ✓ · ${fmt(monto)}`);
   } catch (e) {
     d.abonos = abonosAnteriores;
@@ -1847,6 +1896,476 @@ function renderAnticipos() {
   }));
   cont.querySelectorAll('.btn-editar-anticipo').forEach(b => b.addEventListener('click', () => abrirModalAnticipo(b.dataset.id)));
   cont.querySelectorAll('.btn-eliminar-anticipo').forEach(b => b.addEventListener('click', () => eliminarAnticipo(b.dataset.id)));
+}
+
+// =============================================
+// CRÉDITOS (venta financiada: el cliente se lleva el producto ya, y paga
+// el crédito en cuotas semanales/quincenales/mensuales. El precio con
+// recargo por crédito se escribe a mano en "Monto total", igual que en
+// Deudores — aquí no se calcula ningún recargo automático.)
+// =============================================
+function agregarProductoCredito(p) {
+  const existente = productosCredito.find(x=>x.productoId===p.id);
+  if (existente) {
+    if (existente.cantidad >= p.stock) { alert(`Solo hay ${p.stock} unidades disponibles de ${p.nombre}.`); return; }
+    existente.cantidad += 1;
+  } else {
+    if (p.stock < 1) { alert('Sin stock disponible de este producto.'); return; }
+    productosCredito.push({ productoId: p.id, ref: p.ref, nombre: p.nombre, cantidad: 1, precioUnit: p.pventa1 });
+  }
+  renderProductosCredito();
+}
+
+function renderProductosCredito() {
+  const cont = document.getElementById('credito-productos-lista');
+  const hint = document.getElementById('credito-subtotal-hint');
+  if (productosCredito.length === 0) {
+    cont.innerHTML = '';
+    if (hint) hint.textContent = '';
+    return;
+  }
+  const subtotal = productosCredito.reduce((a,p)=>a+p.precioUnit*p.cantidad,0);
+  if (hint) hint.textContent = `Precio normal de estos productos: ${fmt(subtotal)} (recuerda escribir el monto total del crédito, ya con el recargo, abajo)`;
+
+  cont.innerHTML = productosCredito.map((item,idx) => `
+    <div class="carrito-item">
+      <div class="item-nombre">
+        <strong>${esc(item.nombre)}</strong>
+        <span>Ref: ${esc(item.ref)}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <input type="number" value="${item.cantidad}" min="1" class="input-cantidad-credito" data-idx="${idx}">
+        <span class="item-total">${fmt(item.precioUnit*item.cantidad)}</span>
+        <button type="button" class="btn-peligro btn-quitar-producto-credito-item" data-idx="${idx}" style="padding:6px 10px"><i class="ti ti-x"></i></button>
+      </div>
+    </div>`).join('');
+
+  cont.querySelectorAll('.input-cantidad-credito').forEach(input => {
+    input.addEventListener('change', () => {
+      const idx = parseInt(input.dataset.idx);
+      const item = productosCredito[idx];
+      const p = DB.productos.find(x=>x.id===item.productoId);
+      let nuevaCant = Math.max(1, parseInt(input.value)||1);
+      if (p && nuevaCant > p.stock) {
+        alert(`Solo hay ${p.stock} unidades disponibles de ${item.nombre}.`);
+        nuevaCant = p.stock > 0 ? p.stock : 1;
+      }
+      item.cantidad = nuevaCant;
+      renderProductosCredito();
+    });
+  });
+  cont.querySelectorAll('.btn-quitar-producto-credito-item').forEach(b =>
+    b.addEventListener('click', () => {
+      productosCredito.splice(parseInt(b.dataset.idx),1);
+      renderProductosCredito();
+    }));
+}
+
+// Reparto simple en partes iguales del saldo financiado (monto - abono inicial)
+// entre el número de cuotas, sin interés adicional. La última cuota absorbe el
+// residuo del reparto para que la suma sea exacta. fechaBase es la fecha de
+// creación del crédito (Date), y cada cuota cae fechaBase + n periodos.
+function calcularCuotasCredito(monto, abonoInicial, numCuotas, frecuencia, fechaBase) {
+  const restante = Math.max(0, (Number(monto)||0) - (Number(abonoInicial)||0));
+  const n = Math.max(1, parseInt(numCuotas)||1);
+  const base = Math.floor(restante / n);
+  const resto = restante - base*n;
+  const cuotas = [];
+  for (let i=1; i<=n; i++) {
+    const f = new Date(fechaBase);
+    if (frecuencia === 'semanal') f.setDate(f.getDate() + 7*i);
+    else if (frecuencia === 'quincenal') f.setDate(f.getDate() + 15*i);
+    else f.setMonth(f.getMonth() + i); // mensual
+    cuotas.push({ numero: i, fecha: fechaCO(f), valor: base + (i===n ? resto : 0) });
+  }
+  return cuotas;
+}
+
+// Estado dinámico de cada cuota: como el abono es libre (no amarrado a una
+// cuota en particular), se reparte lo abonado contra el cronograma en orden
+// (FIFO) para saber cuáles cuotas quedan pagadas, parciales o pendientes.
+function estadoCuotasCredito(c) {
+  const cuotas = c.cuotas || [];
+  const abonado = calcularAbonado(c);
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  let acumulado = 0;
+  return cuotas.map(cu => {
+    const anterior = acumulado;
+    acumulado += cu.valor;
+    let estado = 'pendiente';
+    if (abonado >= acumulado) estado = 'pagada';
+    else if (abonado > anterior) estado = 'parcial';
+    const vencida = estado !== 'pagada' && parseFechaCO(cu.fecha) < hoy;
+    return {
+      ...cu, estado, vencida,
+      saldoCuota: estado==='pagada' ? 0 : Math.max(0, acumulado - Math.max(abonado, anterior))
+    };
+  });
+}
+
+function creditoVencido(c) {
+  if (calcularSaldo(c) <= 0) return false;
+  return estadoCuotasCredito(c).some(cu => cu.vencida);
+}
+
+// Cuotas que tocan hoy o que ya están atrasadas (no pagadas) — esto alimenta
+// la caja "Pagan hoy / Atrasados" de la sección Créditos.
+function cuotasHoyYAtrasadasCredito(c) {
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  return estadoCuotasCredito(c).filter(cu => cu.estado !== 'pagada' && parseFechaCO(cu.fecha) <= hoy);
+}
+
+async function guardarCreditoEnSheet(c, esNuevo) {
+  const fila = [c.id,c.clienteId,c.nombre,c.cedula,c.telefono,c.direccion,JSON.stringify(c.productos||[]),c.monto,c.nota,c.fecha,c.hora,c.abonoInicial||0,c.numCuotas,c.frecuencia,JSON.stringify(c.cuotas||[]),JSON.stringify(c.abonos||[]),c.pagada];
+  if (esNuevo) return await sheetsEscribir('append','Creditos',fila);
+  return await sheetsEscribir('update','Creditos',fila,c.id);
+}
+
+function abrirModalCredito(id) {
+  editandoCreditoId = id || null;
+  productosCredito = [];
+  document.getElementById('credito-producto-buscar').value = '';
+  document.getElementById('credito-producto-resultados').innerHTML = '';
+  document.getElementById('credito-inicial').value = '';
+  document.getElementById('credito-cuotas').value = '1';
+  document.getElementById('credito-frecuencia').value = 'mensual';
+  document.querySelector('input[name="credito-metodo"][value="efectivo"]').checked = true;
+  quitarClienteCredito();
+  document.getElementById('credito-cliente-buscar').value = '';
+  document.getElementById('credito-cliente-resultados').innerHTML = '';
+  document.getElementById('modal-credito-titulo').textContent = id ? 'Editar crédito' : 'Agregar crédito';
+  const bloqueInicial = document.getElementById('credito-bloque-inicial');
+  if (id) {
+    const c = DB.creditos.find(x => x.id === id);
+    if (!c) return;
+    seleccionarClienteCredito({ id: c.clienteId, nombre: c.nombre, cedula: c.cedula, telefono: c.telefono });
+    productosCredito = (c.productos||[]).map(p=>({productoId:p.productoId, ref:p.ref||'', nombre:p.productoNombre, cantidad:p.cantidad, precioUnit:p.precioUnit}));
+    document.getElementById('credito-monto').value = c.monto;
+    document.getElementById('credito-nota').value = c.nota||'';
+    document.getElementById('credito-cuotas').value = c.numCuotas;
+    document.getElementById('credito-frecuencia').value = c.frecuencia;
+    if (bloqueInicial) bloqueInicial.classList.add('hidden');
+  } else {
+    ['credito-monto','credito-nota'].forEach(x => document.getElementById(x).value='');
+    if (bloqueInicial) bloqueInicial.classList.remove('hidden');
+  }
+  renderProductosCredito();
+  abrirModal('modal-credito');
+}
+
+async function guardarCredito() {
+  const monto = parseFloat(document.getElementById('credito-monto').value)||0;
+  const nota = document.getElementById('credito-nota').value.trim();
+  const numCuotas = Math.max(1, parseInt(document.getElementById('credito-cuotas').value)||1);
+  const frecuencia = document.getElementById('credito-frecuencia').value;
+  if (!clienteCredito||!monto) { alert('Selecciona un cliente e ingresa el monto total del crédito'); return; }
+  for (const item of productosCredito) {
+    const p = DB.productos.find(x => x.id===item.productoId);
+    if (p && item.cantidad > p.stock) { alert(`Solo hay ${p.stock} unidades disponibles de ${item.nombre}.`); return; }
+  }
+
+  const btn = document.getElementById('btn-guardar-credito');
+  btn.textContent='Guardando...'; btn.disabled=true;
+  const productos = productosCredito.map(p=>({productoId:p.productoId, ref:p.ref, productoNombre:p.nombre, cantidad:p.cantidad, precioUnit:p.precioUnit}));
+
+  if (editandoCreditoId) {
+    const c = DB.creditos.find(x => x.id===editandoCreditoId);
+    if (c) {
+      Object.assign(c, {
+        clienteId: clienteCredito.id, nombre: clienteCredito.nombre, cedula: clienteCredito.cedula,
+        telefono: clienteCredito.telefono||'', nota, productos, monto, numCuotas, frecuencia
+      });
+      c.cuotas = calcularCuotasCredito(c.monto, c.abonoInicial, c.numCuotas, c.frecuencia, parseFechaCO(c.fecha));
+      c.pagada = calcularSaldo(c) <= 0;
+      const actualizado = await guardarCreditoEnSheet(c, false);
+      if (!actualizado) {
+        btn.textContent='Guardar'; btn.disabled=false;
+        alert('NO SE PUDO ACTUALIZAR EL CRÉDITO EN GOOGLE SHEETS.\n\nNo se cerró el formulario para que puedas volver a intentarlo.');
+        return;
+      }
+    }
+    btn.textContent='Guardar'; btn.disabled=false;
+    guardarLocal(); cerrarModal('modal-credito'); renderCreditos();
+    mostrarToast('Crédito actualizado ✓');
+    return;
+  }
+
+  const inicial = parseFloat(document.getElementById('credito-inicial').value)||0;
+  const metodoPago = document.querySelector('input[name="credito-metodo"]:checked').value;
+  if (inicial > monto) { alert('El pago inicial no puede ser mayor al monto total'); return; }
+
+  // El cliente se lleva los productos de una vez (es una venta financiada):
+  // se descuenta el inventario ya, igual que en Deudores.
+  for (const item of productosCredito) {
+    const p = DB.productos.find(x => x.id===item.productoId);
+    if (p) {
+      p.stock = Math.max(0, p.stock - item.cantidad);
+      await sheetsEscribir('update','Productos',[p.id,p.ref,p.nombre,p.pcompra,p.pventa1,p.pventa2,p.stock],p.id);
+    }
+  }
+
+  const ahora = new Date();
+  const nuevo = {
+    id: uid(), clienteId: clienteCredito.id, nombre: clienteCredito.nombre, cedula: clienteCredito.cedula,
+    telefono: clienteCredito.telefono||'', direccion: clienteCredito.direccion||'',
+    productos,
+    monto, nota, fecha: fechaCO(ahora), hora: horaCO(ahora),
+    abonoInicial: inicial, numCuotas, frecuencia,
+    abonos: [], pagada: false
+  };
+  nuevo.cuotas = calcularCuotasCredito(nuevo.monto, nuevo.abonoInicial, nuevo.numCuotas, nuevo.frecuencia, ahora);
+
+  DB.creditos.push(nuevo);
+  const creditoGuardado = await guardarCreditoEnSheet(nuevo, true);
+  if (!creditoGuardado) {
+    DB.creditos = DB.creditos.filter(x => x.id !== nuevo.id);
+    btn.textContent='Guardar'; btn.disabled=false;
+    alert('NO SE PUDO GUARDAR EL CRÉDITO EN GOOGLE SHEETS.\n\nRevisa la conexión y vuelve a intentarlo.');
+    return;
+  }
+
+  if (inicial > 0) {
+    try {
+      const ventaInicial = await registrarPagoDeuda(nuevo, 'credito', inicial, metodoPago);
+      const creditoActualizado = await guardarCreditoEnSheet(nuevo, false);
+      if (!creditoActualizado) {
+        if (ventaInicial) await sheetsEscribir('delete','Ventas',null,ventaInicial.id);
+        DB.ventas = DB.ventas.filter(v => !ventaInicial || v.id !== ventaInicial.id);
+        DB.creditos = DB.creditos.filter(x => x.id !== nuevo.id);
+        alert('NO SE PUDO GUARDAR EL ABONO INICIAL DEL CRÉDITO.\n\nEl registro fue revertido para evitar inconsistencias.');
+        btn.textContent='Guardar'; btn.disabled=false;
+        return;
+      }
+    } catch (e) {
+      DB.creditos = DB.creditos.filter(x => x.id !== nuevo.id);
+      console.error('Error guardando abono inicial del crédito:', e);
+      alert('NO SE PUDO GUARDAR EL ABONO INICIAL.\n\n' + (e && e.message ? e.message : String(e)));
+      btn.textContent='Guardar'; btn.disabled=false;
+      return;
+    }
+  }
+
+  guardarLocal(); btn.textContent='Guardar'; btn.disabled=false;
+  cerrarModal('modal-credito'); renderCreditos(); renderDashboard();
+  mostrarToast('Crédito agregado ✓ (usa el botón de imprimir para el pagaré)');
+}
+
+async function eliminarCredito(id) {
+  if (!confirm('¿Eliminar este crédito?')) return;
+  await sheetsEscribir('delete','Creditos',null,id);
+  DB.creditos = DB.creditos.filter(c => c.id!==id);
+  guardarLocal(); renderCreditos(); mostrarToast('Crédito eliminado');
+}
+
+function renderCreditos() {
+  const boxHoy = document.getElementById('creditos-hoy-contenido');
+  const cont = document.getElementById('creditos-contenido');
+
+  // --- Caja "Pagan hoy / Atrasados" ---
+  const pendientesHoy = [];
+  DB.creditos.forEach(c => {
+    if (calcularSaldo(c) <= 0) return;
+    cuotasHoyYAtrasadasCredito(c).forEach(cu => pendientesHoy.push({ credito: c, cuota: cu }));
+  });
+
+  if (boxHoy) {
+    if (pendientesHoy.length === 0) {
+      boxHoy.innerHTML = `<div class="estado-vacio"><i class="ti ti-calendar-check"></i><p>Nadie tiene cuota pendiente para hoy.</p></div>`;
+    } else {
+      pendientesHoy.sort((a,b) => (b.cuota.vencida?1:0) - (a.cuota.vencida?1:0));
+      const filasHoy = pendientesHoy.map(({credito,cuota}) => `
+        <tr>
+          <td>${esc(credito.nombre)}<div style="font-size:11px;color:var(--texto2)">CC ${esc(credito.cedula)}</div></td>
+          <td style="font-size:13px">Cuota ${cuota.numero}/${credito.numCuotas}</td>
+          <td style="font-size:13px">${cuota.fecha}</td>
+          <td>${cuota.vencida?'<span class="badge danger">Atrasada</span>':'<span class="badge alerta">Hoy</span>'}</td>
+          <td style="font-weight:500">${fmt(cuota.saldoCuota)}</td>
+          <td><button class="btn-primary btn-abonar-credito-hoy" data-id="${credito.id}" style="padding:6px 10px"><i class="ti ti-cash"></i></button></td>
+        </tr>`).join('');
+      boxHoy.innerHTML = `<div class="tabla-wrap"><table>
+        <thead><tr><th>Cliente</th><th>Cuota</th><th>Fecha</th><th>Estado</th><th>Valor</th><th></th></tr></thead>
+        <tbody>${filasHoy}</tbody></table></div>`;
+      boxHoy.querySelectorAll('.btn-abonar-credito-hoy').forEach(b => b.addEventListener('click', () => abrirModalAbono(b.dataset.id, 'credito')));
+    }
+  }
+
+  // --- Listado completo ---
+  if (DB.creditos.length === 0) {
+    cont.innerHTML = `<div class="estado-vacio"><i class="ti ti-calendar-dollar"></i><p>Sin créditos registrados.</p></div>`;
+    return;
+  }
+
+  const ordenados = DB.creditos.slice().sort((a,b) => (calcularSaldo(b)>0?1:0) - (calcularSaldo(a)>0?1:0));
+
+  const filas = ordenados.map(c => {
+    const saldo = calcularSaldo(c);
+    const abonado = calcularAbonado(c);
+    const vencida = creditoVencido(c);
+    const badge = saldo<=0 ? '<span class="badge ok">Pagado</span>'
+      : vencida ? '<span class="badge danger">Atrasado</span>'
+      : '<span class="badge alerta">Al día</span>';
+    const proxima = estadoCuotasCredito(c).find(cu => cu.estado !== 'pagada');
+    return `<tr>
+      <td>${esc(c.nombre)}<div style="font-size:11px;color:var(--texto2)">CC ${esc(c.cedula)}</div></td>
+      <td style="font-size:13px">${c.productos&&c.productos.length?c.productos.map(p=>esc(p.productoNombre)+' x'+p.cantidad).join(', '):'-'}</td>
+      <td>${fmt(c.monto)}</td>
+      <td>${fmt(abonado)}</td>
+      <td style="font-weight:500">${fmt(saldo)}</td>
+      <td style="font-size:13px">${proxima?`${proxima.fecha} (cuota ${proxima.numero}/${c.numCuotas})`:'-'}</td>
+      <td>${badge}</td>
+      <td><div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${saldo>0?`<button class="btn-primary btn-abonar-credito" data-id="${c.id}" style="padding:6px 10px"><i class="ti ti-cash"></i></button>`:''}
+        <button class="btn-secundario btn-boucher-credito" data-id="${c.id}" style="padding:6px 10px"><i class="ti ti-printer"></i></button>
+        <button class="btn-secundario btn-editar-credito" data-id="${c.id}" style="padding:6px 10px"><i class="ti ti-edit"></i></button>
+        <button class="btn-peligro btn-eliminar-credito" data-id="${c.id}" style="padding:6px 10px"><i class="ti ti-trash"></i></button>
+      </div></td>
+    </tr>`;
+  }).join('');
+
+  cont.innerHTML = `<div class="tabla-wrap"><table>
+    <thead><tr><th>Cliente</th><th>Producto</th><th>Monto</th><th>Abonado</th><th>Saldo</th><th>Próxima cuota</th><th>Estado</th><th>Acciones</th></tr></thead>
+    <tbody>${filas}</tbody></table></div>`;
+
+  cont.querySelectorAll('.btn-abonar-credito').forEach(b => b.addEventListener('click', () => abrirModalAbono(b.dataset.id, 'credito')));
+  cont.querySelectorAll('.btn-boucher-credito').forEach(b => b.addEventListener('click', () => {
+    const c = DB.creditos.find(x=>x.id===b.dataset.id); if (c) imprimirReciboCredito(c);
+  }));
+  cont.querySelectorAll('.btn-editar-credito').forEach(b => b.addEventListener('click', () => abrirModalCredito(b.dataset.id)));
+  cont.querySelectorAll('.btn-eliminar-credito').forEach(b => b.addEventListener('click', () => eliminarCredito(b.dataset.id)));
+}
+
+const ETIQUETA_FRECUENCIA = { semanal: 'Semanales', quincenal: 'Quincenales', mensual: 'Mensuales' };
+
+function imprimirReciboCredito(c) {
+  const ahora = new Date();
+  const cuotas = estadoCuotasCredito(c);
+  const saldo = calcularSaldo(c);
+  const abonado = calcularAbonado(c);
+  const productos = c.productos||[];
+
+  const filasProductos = productos.map(p => `
+    <tr>
+      <td>${esc(p.ref||'-')}</td>
+      <td>${esc(p.productoNombre)}</td>
+      <td style="text-align:center">${p.cantidad}</td>
+      <td style="text-align:right">${fmt(p.precioUnit)}</td>
+    </tr>`).join('');
+
+  const filasCuotas = cuotas.map(cu => `
+    <tr>
+      <td>${cu.numero}</td>
+      <td>${cu.fecha}</td>
+      <td style="text-align:right">${fmt(cu.valor)}</td>
+      <td style="text-align:center">${cu.estado==='pagada'?'Pagada':cu.estado==='parcial'?'Parcial':(cu.vencida?'Atrasada':'Pendiente')}</td>
+    </tr>`).join('');
+
+  document.getElementById('credito-print-contenido').innerHTML = `
+    <div id="tp-header">
+      <h1>Mundo Hogar</h1>
+      <p>Pagaré — Venta a crédito</p>
+    </div>
+    <div id="tp-meta">
+      <span><strong>Fecha:</strong> ${fechaCO(ahora)}</span>
+      <span><strong>Hora:</strong> ${horaCO(ahora)}</span>
+    </div>
+    <p style="font-size:13px;margin-bottom:4px"><strong>Cliente:</strong> ${esc(c.nombre)}</p>
+    <p style="font-size:13px;margin-bottom:4px"><strong>Cédula:</strong> ${esc(c.cedula)}</p>
+    ${c.telefono?`<p style="font-size:13px;margin-bottom:4px"><strong>Teléfono:</strong> ${esc(c.telefono)}</p>`:''}
+    ${c.direccion?`<p style="font-size:13px;margin-bottom:4px"><strong>Dirección:</strong> ${esc(c.direccion)}</p>`:''}
+    ${productos.length?`
+      <table style="margin-top:8px;margin-bottom:8px">
+        <thead><tr><th>Código</th><th>Producto</th><th>Cant.</th><th>Precio</th></tr></thead>
+        <tbody>${filasProductos}</tbody>
+      </table>`:''}
+    ${c.nota?`<p style="font-size:13px;margin-bottom:4px"><strong>Comentario:</strong> ${esc(c.nota)}</p>`:''}
+    <p style="margin-top:8px;font-size:14px"><strong>Monto total del crédito: ${fmt(c.monto)}</strong></p>
+    ${c.abonoInicial?`<p style="font-size:13px">Pago inicial: ${fmt(c.abonoInicial)}</p>`:''}
+    <p style="font-size:13px">Cuotas: ${c.numCuotas} · ${ETIQUETA_FRECUENCIA[c.frecuencia]||c.frecuencia}</p>
+
+    <p style="margin-top:12px;font-size:13px"><strong>Tabla de cuotas (pagaré):</strong></p>
+    <table>
+      <thead><tr><th>#</th><th>Fecha</th><th>Valor</th><th>Estado</th></tr></thead>
+      <tbody>${filasCuotas}</tbody>
+    </table>
+
+    <p style="margin-top:12px;font-size:13px">Abonado hasta ahora: ${fmt(abonado)}</p>
+    <p style="margin-top:4px;font-size:16px"><strong>Saldo pendiente: ${fmt(saldo)}</strong></p>
+    ${saldo<=0?`<p style="text-align:center;margin-top:8px;font-size:13px">CRÉDITO CANCELADO EN SU TOTALIDAD</p>`:''}
+    <p style="margin-top:14px;font-size:11px;text-align:center">El cliente declara recibir el(los) producto(s) aquí descritos y se compromete a pagar las cuotas pactadas en las fechas indicadas.</p>
+  `;
+
+  prepararImpresion('credito-print');
+  window.print();
+}
+
+// =============================================
+// SIMULACIÓN DE CRÉDITOS (calculadora para el cliente — no escribe nada
+// en Google Sheets, es puramente informativa y así lo dice el recibo)
+// =============================================
+function calcularSimulacion() {
+  const nombre = document.getElementById('sim-nombre').value.trim();
+  const monto = parseFloat(document.getElementById('sim-monto').value)||0;
+  const inicial = parseFloat(document.getElementById('sim-inicial').value)||0;
+  const numCuotas = Math.max(1, parseInt(document.getElementById('sim-cuotas').value)||1);
+  const frecuencia = document.getElementById('sim-frecuencia').value;
+
+  if (!monto) { alert('Ingresa el monto total a simular'); return; }
+  if (inicial > monto) { alert('El pago inicial no puede ser mayor al monto total'); return; }
+
+  const cuotas = calcularCuotasCredito(monto, inicial, numCuotas, frecuencia, new Date());
+  simulacionActual = { nombre, monto, inicial, numCuotas, frecuencia, cuotas };
+  renderSimulacion();
+}
+
+function renderSimulacion() {
+  const cont = document.getElementById('simulacion-resultado');
+  if (!cont) return;
+  if (!simulacionActual) { cont.innerHTML=''; return; }
+  const { monto, inicial, cuotas } = simulacionActual;
+  const filas = cuotas.map(cu => `
+    <tr><td>${cu.numero}</td><td>${cu.fecha}</td><td style="text-align:right">${fmt(cu.valor)}</td></tr>`).join('');
+  cont.innerHTML = `
+    <div class="card" style="margin-top:12px">
+      <p style="font-size:13px">Monto total: <strong>${fmt(monto)}</strong></p>
+      ${inicial?`<p style="font-size:13px">Pago inicial: ${fmt(inicial)}</p>`:''}
+      <div class="tabla-wrap" style="margin-top:8px"><table>
+        <thead><tr><th>Cuota</th><th>Fecha</th><th>Valor</th></tr></thead>
+        <tbody>${filas}</tbody></table></div>
+      <button class="btn-primary" id="btn-imprimir-simulacion" style="width:100%;margin-top:10px"><i class="ti ti-printer"></i> Imprimir simulación</button>
+    </div>`;
+  document.getElementById('btn-imprimir-simulacion').addEventListener('click', imprimirSimulacion);
+}
+
+function imprimirSimulacion() {
+  if (!simulacionActual) return;
+  const ahora = new Date();
+  const { nombre, monto, inicial, numCuotas, frecuencia, cuotas } = simulacionActual;
+  const filas = cuotas.map(cu => `
+    <tr><td>${cu.numero}</td><td>${cu.fecha}</td><td style="text-align:right">${fmt(cu.valor)}</td></tr>`).join('');
+
+  document.getElementById('simulacion-print-contenido').innerHTML = `
+    <div id="tp-header">
+      <h1>Mundo Hogar</h1>
+      <p>Simulación de créditos</p>
+    </div>
+    <div id="tp-meta">
+      <span><strong>Fecha:</strong> ${fechaCO(ahora)}</span>
+      <span><strong>Hora:</strong> ${horaCO(ahora)}</span>
+    </div>
+    ${nombre?`<p style="font-size:13px;margin-bottom:4px"><strong>Cliente:</strong> ${esc(nombre)}</p>`:''}
+    <p style="margin-top:8px;font-size:14px"><strong>Monto total: ${fmt(monto)}</strong></p>
+    ${inicial?`<p style="font-size:13px">Pago inicial: ${fmt(inicial)}</p>`:''}
+    <p style="font-size:13px">Cuotas: ${numCuotas} · ${ETIQUETA_FRECUENCIA[frecuencia]||frecuencia}</p>
+    <table style="margin-top:10px">
+      <thead><tr><th>Cuota</th><th>Fecha</th><th>Valor</th></tr></thead>
+      <tbody>${filas}</tbody>
+    </table>
+    <p style="margin-top:16px;font-size:12px;text-align:center;font-weight:600">ESTO NO CUENTA COMO FACTURA NI COMPROBANTE DE VENTA</p>
+    <p style="margin-top:4px;font-size:11px;text-align:center">Simulación informativa — los valores reales pueden variar según condiciones acordadas.</p>
+  `;
+
+  prepararImpresion('simulacion-print');
+  window.print();
 }
 
 // =============================================
@@ -3538,6 +4057,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!DB.clientes) DB.clientes = [];
   if (!DB.deudores) DB.deudores = [];
   if (!DB.anticipos) DB.anticipos = [];
+  if (!DB.creditos) DB.creditos = [];
   if (!DB.proveedores) DB.proveedores = [];
   if (!DB.gastos) DB.gastos = [];
   if (!DB.traslados) DB.traslados = [];
@@ -3783,6 +4303,17 @@ document.addEventListener('DOMContentLoaded', () => {
   inicializarBuscadorProducto('anticipo', 'anticipo-producto-buscar', 'anticipo-producto-resultados', agregarProductoAnticipo);
   document.getElementById('btn-abrir-modal-anticipo').addEventListener('click', () => abrirModalAnticipo(null));
   document.getElementById('btn-guardar-anticipo').addEventListener('click', guardarAnticipo);
+
+  // Créditos
+  inicializarBuscadorCliente('credito', 'credito-cliente-buscar', 'credito-cliente-resultados', seleccionarClienteCredito);
+  document.getElementById('btn-nuevo-cliente-credito').addEventListener('click', () => abrirModalNuevoCliente('credito'));
+  document.getElementById('btn-quitar-cliente-credito').addEventListener('click', quitarClienteCredito);
+  inicializarBuscadorProducto('credito', 'credito-producto-buscar', 'credito-producto-resultados', agregarProductoCredito);
+  document.getElementById('btn-abrir-modal-credito').addEventListener('click', () => abrirModalCredito(null));
+  document.getElementById('btn-guardar-credito').addEventListener('click', guardarCredito);
+
+  // Simulación créditos
+  document.getElementById('btn-calcular-simulacion').addEventListener('click', calcularSimulacion);
 
   // Proveedores
   document.getElementById('btn-abrir-modal-proveedor').addEventListener('click', abrirModalProveedor);
