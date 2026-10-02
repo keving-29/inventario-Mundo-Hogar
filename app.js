@@ -2323,7 +2323,7 @@ function imprimirReciboCredito(c) {
       <p style="font-size:9px;text-align:justify;line-height:1.3">El comprador manifiesta que acepta expresamente la presente cláusula de reserva de dominio.</p>
     </div>
 
-    <div id="tp-firmas" style="margin-top:22px">
+    <div id="tp-firmas" style="margin-top:70px">
       <div class="tp-firma">
         <div class="tp-linea"></div>
         <span style="font-size:12px">Firma cliente</span>
