@@ -2295,9 +2295,14 @@ function imprimirReciboCredito(c) {
         <tbody>${filasProductos}</tbody>
       </table>`:''}
     ${c.nota?`<p style="font-size:13px;margin-bottom:4px"><strong>Comentario:</strong> ${esc(c.nota)}</p>`:''}
-    <p style="margin-top:8px;font-size:14px"><strong>Monto total del crédito: ${fmt(c.monto)}</strong></p>
-    ${c.abonoInicial?`<p style="font-size:13px">Pago inicial: ${fmt(c.abonoInicial)}</p>`:''}
-    <p style="font-size:13px">Cuotas: ${c.numCuotas} · ${ETIQUETA_FRECUENCIA[c.frecuencia]||c.frecuencia}</p>
+
+    <div style="border:2px solid #000;border-radius:6px;padding:10px 14px;margin-top:10px;margin-bottom:10px">
+      <p style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Monto total del producto con el crédito</p>
+      <p style="font-size:20px;font-weight:700">${fmt(c.monto)}</p>
+    </div>
+
+    ${c.abonoInicial?`<p style="font-size:16px;font-weight:700;margin-bottom:2px">Pago inicial: ${fmt(c.abonoInicial)}</p>`:''}
+    <p style="font-size:16px;font-weight:700">Cuotas: ${c.numCuotas} · ${ETIQUETA_FRECUENCIA[c.frecuencia]||c.frecuencia}</p>
 
     <p style="margin-top:12px;font-size:13px"><strong>Tabla de cuotas (pagaré):</strong></p>
     <table>
@@ -2309,6 +2314,25 @@ function imprimirReciboCredito(c) {
     <p style="margin-top:4px;font-size:16px"><strong>Saldo pendiente: ${fmt(saldo)}</strong></p>
     ${saldo<=0?`<p style="text-align:center;margin-top:8px;font-size:13px">CRÉDITO CANCELADO EN SU TOTALIDAD</p>`:''}
     <p style="margin-top:14px;font-size:11px;text-align:center">El cliente declara recibir el(los) producto(s) aquí descritos y se compromete a pagar las cuotas pactadas en las fechas indicadas.</p>
+
+    <div style="margin-top:20px;padding-top:12px;border-top:1px solid #000">
+      <p style="font-size:14px;font-weight:700;text-align:center;margin-bottom:8px">CLÁUSULA DE RESERVA DE DOMINIO – VENTA A CRÉDITO</p>
+      <p style="font-size:12px;margin-bottom:6px;text-align:justify">El comprador declara conocer y aceptar que la presente venta se realiza a crédito y que, de conformidad con el artículo 952 del Código de Comercio, el vendedor se reserva el dominio y la propiedad del bien objeto de esta factura hasta que sea pagada en su totalidad la obligación correspondiente.</p>
+      <p style="font-size:12px;margin-bottom:6px;text-align:justify">En caso de incumplimiento en el pago de las cuotas o del valor pactado dentro de los plazos establecidos, el vendedor podrá ejercer los derechos y acciones legales correspondientes para obtener el pago de la obligación y/o la restitución del bien, de acuerdo con las disposiciones legales aplicables.</p>
+      <p style="font-size:12px;margin-bottom:6px;text-align:justify">La entrega material del bien no implica la transferencia definitiva de su dominio mientras exista saldo pendiente de pago.</p>
+      <p style="font-size:12px;text-align:justify">El comprador manifiesta que acepta expresamente la presente cláusula de reserva de dominio.</p>
+    </div>
+
+    <div id="tp-firmas">
+      <div class="tp-firma">
+        <div class="tp-linea"></div>
+        <span>Firma cliente</span>
+      </div>
+      <div class="tp-firma">
+        <div class="tp-linea"></div>
+        <span>Firma vendedor</span>
+      </div>
+    </div>
   `;
 
   prepararImpresion('credito-print');
