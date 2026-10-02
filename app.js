@@ -1,7 +1,7 @@
 // =============================================
 // CONFIGURACIÓN
 // =============================================
-const SCRIPT_URL = 'PEGA_AQUI_LA_URL_DE_TU_APPS_SCRIPT_MUNDO_HOGAR'; // <-- reemplaza con la URL que te da 'Implementar > Nueva implementación' en el Apps Script de Mundo Hogar
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzYx7UYaU-MEkU1hTsCtTKFMURNrYFJjwqUJkP69Fo7axJfTtvLxiC3fX7sv-vTmuAK/exec'; // <-- reemplaza con la URL que te da 'Implementar > Nueva implementación' en el Apps Script de Mundo Hogar
 
 // =============================================
 // ESTADO LOCAL
