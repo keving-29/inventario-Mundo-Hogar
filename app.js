@@ -1925,7 +1925,7 @@ function renderProductosCredito() {
     return;
   }
   const subtotal = productosCredito.reduce((a,p)=>a+p.precioUnit*p.cantidad,0);
-  if (hint) hint.textContent = `Precio normal de estos productos: ${fmt(subtotal)} (recuerda escribir el monto total del crédito, ya con el recargo, abajo)`;
+  if (hint) hint.textContent = `Suma de productos con el precio escrito abajo: ${fmt(subtotal)} (el precio unitario sale con el valor de contado por defecto — súbelo si quieres reflejar aquí el recargo del crédito; el monto total del crédito igual se escribe a mano más abajo)`;
 
   cont.innerHTML = productosCredito.map((item,idx) => `
     <div class="carrito-item">
@@ -1934,7 +1934,8 @@ function renderProductosCredito() {
         <span>Ref: ${esc(item.ref)}</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <input type="number" value="${item.cantidad}" min="1" class="input-cantidad-credito" data-idx="${idx}">
+        <input type="number" value="${item.cantidad}" min="1" class="input-cantidad-credito" data-idx="${idx}" style="width:64px" title="Cantidad">
+        <input type="number" value="${item.precioUnit}" min="0" class="input-precio-credito" data-idx="${idx}" style="width:110px" title="Precio unitario (editable)">
         <span class="item-total">${fmt(item.precioUnit*item.cantidad)}</span>
         <button type="button" class="btn-peligro btn-quitar-producto-credito-item" data-idx="${idx}" style="padding:6px 10px"><i class="ti ti-x"></i></button>
       </div>
@@ -1951,6 +1952,14 @@ function renderProductosCredito() {
         nuevaCant = p.stock > 0 ? p.stock : 1;
       }
       item.cantidad = nuevaCant;
+      renderProductosCredito();
+    });
+  });
+  cont.querySelectorAll('.input-precio-credito').forEach(input => {
+    input.addEventListener('change', () => {
+      const idx = parseInt(input.dataset.idx);
+      const item = productosCredito[idx];
+      item.precioUnit = Math.max(0, parseFloat(input.value)||0);
       renderProductosCredito();
     });
   });
@@ -1984,9 +1993,17 @@ function calcularCuotasCredito(monto, abonoInicial, numCuotas, frecuencia, fecha
 // Estado dinámico de cada cuota: como el abono es libre (no amarrado a una
 // cuota en particular), se reparte lo abonado contra el cronograma en orden
 // (FIFO) para saber cuáles cuotas quedan pagadas, parciales o pendientes.
+//
+// OJO: calcularAbonado(c) suma TODOS los abonos, incluido el pago inicial.
+// Pero el cronograma de cuotas (calcularCuotasCredito) ya se calculó sobre
+// el saldo restante DESPUÉS de descontar ese mismo pago inicial. Si aquí
+// comparamos el abonado completo (que incluye el inicial) contra las cuotas
+// (que ya no incluyen el inicial), el inicial queda contado dos veces y
+// todas las cuotas aparecen como pagadas de una vez. Por eso se resta el
+// abono inicial antes de repartir lo abonado contra las cuotas.
 function estadoCuotasCredito(c) {
   const cuotas = c.cuotas || [];
-  const abonado = calcularAbonado(c);
+  const abonado = Math.max(0, calcularAbonado(c) - (Number(c.abonoInicial)||0));
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   let acumulado = 0;
   return cuotas.map(cu => {
