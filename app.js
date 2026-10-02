@@ -1,7 +1,7 @@
 // =============================================
 // CONFIGURACIÓN
 // =============================================
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzYx7UYaU-MEkU1hTsCtTKFMURNrYFJjwqUJkP69Fo7axJfTtvLxiC3fX7sv-vTmuAK/exec'; // <-- reemplaza con la URL que te da 'Implementar > Nueva implementación' en el Apps Script de Mundo Hogar
+const SCRIPT_URL = 'PEGA_AQUI_LA_URL_DE_TU_APPS_SCRIPT_MUNDO_HOGAR'; // <-- reemplaza con la URL que te da 'Implementar > Nueva implementación' en el Apps Script de Mundo Hogar
 
 // =============================================
 // ESTADO LOCAL
@@ -2296,41 +2296,41 @@ function imprimirReciboCredito(c) {
       </table>`:''}
     ${c.nota?`<p style="font-size:13px;margin-bottom:4px"><strong>Comentario:</strong> ${esc(c.nota)}</p>`:''}
 
-    <div style="border:2px solid #000;border-radius:6px;padding:10px 14px;margin-top:10px;margin-bottom:10px">
-      <p style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Monto total del producto con el crédito</p>
-      <p style="font-size:20px;font-weight:700">${fmt(c.monto)}</p>
+    <div style="border:2px solid #000;border-radius:6px;padding:6px 12px;margin-top:8px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <span style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px">Monto total del producto con el crédito</span>
+      <span style="font-size:16px;font-weight:700;white-space:nowrap">${fmt(c.monto)}</span>
     </div>
 
-    ${c.abonoInicial?`<p style="font-size:16px;font-weight:700;margin-bottom:2px">Pago inicial: ${fmt(c.abonoInicial)}</p>`:''}
-    <p style="font-size:16px;font-weight:700">Cuotas: ${c.numCuotas} · ${ETIQUETA_FRECUENCIA[c.frecuencia]||c.frecuencia}</p>
+    ${c.abonoInicial?`<p style="font-size:13px">Pago inicial: ${fmt(c.abonoInicial)}</p>`:''}
+    <p style="font-size:13px">Cuotas: ${c.numCuotas} · ${ETIQUETA_FRECUENCIA[c.frecuencia]||c.frecuencia}</p>
 
-    <p style="margin-top:12px;font-size:13px"><strong>Tabla de cuotas (pagaré):</strong></p>
+    <p style="margin-top:10px;margin-bottom:2px;font-size:13px"><strong>Tabla de cuotas (pagaré):</strong></p>
     <table>
       <thead><tr><th>#</th><th>Fecha</th><th>Valor</th><th>Estado</th></tr></thead>
       <tbody>${filasCuotas}</tbody>
     </table>
 
-    <p style="margin-top:12px;font-size:13px">Abonado hasta ahora: ${fmt(abonado)}</p>
-    <p style="margin-top:4px;font-size:16px"><strong>Saldo pendiente: ${fmt(saldo)}</strong></p>
-    ${saldo<=0?`<p style="text-align:center;margin-top:8px;font-size:13px">CRÉDITO CANCELADO EN SU TOTALIDAD</p>`:''}
-    <p style="margin-top:14px;font-size:11px;text-align:center">El cliente declara recibir el(los) producto(s) aquí descritos y se compromete a pagar las cuotas pactadas en las fechas indicadas.</p>
+    <p style="margin-top:8px;margin-bottom:2px;font-size:13px">Abonado hasta ahora: ${fmt(abonado)}</p>
+    <p style="margin-top:2px;font-size:14px"><strong>Saldo pendiente: ${fmt(saldo)}</strong></p>
+    ${saldo<=0?`<p style="text-align:center;margin-top:4px;font-size:12px">CRÉDITO CANCELADO EN SU TOTALIDAD</p>`:''}
+    <p style="margin-top:8px;font-size:10px;text-align:center">El cliente declara recibir el(los) producto(s) aquí descritos y se compromete a pagar las cuotas pactadas en las fechas indicadas.</p>
 
-    <div style="margin-top:20px;padding-top:12px;border-top:1px solid #000">
-      <p style="font-size:14px;font-weight:700;text-align:center;margin-bottom:8px">CLÁUSULA DE RESERVA DE DOMINIO – VENTA A CRÉDITO</p>
-      <p style="font-size:12px;margin-bottom:6px;text-align:justify">El comprador declara conocer y aceptar que la presente venta se realiza a crédito y que, de conformidad con el artículo 952 del Código de Comercio, el vendedor se reserva el dominio y la propiedad del bien objeto de esta factura hasta que sea pagada en su totalidad la obligación correspondiente.</p>
-      <p style="font-size:12px;margin-bottom:6px;text-align:justify">En caso de incumplimiento en el pago de las cuotas o del valor pactado dentro de los plazos establecidos, el vendedor podrá ejercer los derechos y acciones legales correspondientes para obtener el pago de la obligación y/o la restitución del bien, de acuerdo con las disposiciones legales aplicables.</p>
-      <p style="font-size:12px;margin-bottom:6px;text-align:justify">La entrega material del bien no implica la transferencia definitiva de su dominio mientras exista saldo pendiente de pago.</p>
-      <p style="font-size:12px;text-align:justify">El comprador manifiesta que acepta expresamente la presente cláusula de reserva de dominio.</p>
+    <div style="margin-top:10px;padding-top:6px;border-top:1px solid #000">
+      <p style="font-size:11px;font-weight:700;text-align:center;margin-bottom:4px">CLÁUSULA DE RESERVA DE DOMINIO – VENTA A CRÉDITO</p>
+      <p style="font-size:9px;margin-bottom:3px;text-align:justify;line-height:1.3">El comprador declara conocer y aceptar que la presente venta se realiza a crédito y que, de conformidad con el artículo 952 del Código de Comercio, el vendedor se reserva el dominio y la propiedad del bien objeto de esta factura hasta que sea pagada en su totalidad la obligación correspondiente.</p>
+      <p style="font-size:9px;margin-bottom:3px;text-align:justify;line-height:1.3">En caso de incumplimiento en el pago de las cuotas o del valor pactado dentro de los plazos establecidos, el vendedor podrá ejercer los derechos y acciones legales correspondientes para obtener el pago de la obligación y/o la restitución del bien, de acuerdo con las disposiciones legales aplicables.</p>
+      <p style="font-size:9px;margin-bottom:3px;text-align:justify;line-height:1.3">La entrega material del bien no implica la transferencia definitiva de su dominio mientras exista saldo pendiente de pago.</p>
+      <p style="font-size:9px;text-align:justify;line-height:1.3">El comprador manifiesta que acepta expresamente la presente cláusula de reserva de dominio.</p>
     </div>
 
-    <div id="tp-firmas">
+    <div id="tp-firmas" style="margin-top:22px">
       <div class="tp-firma">
         <div class="tp-linea"></div>
-        <span>Firma cliente</span>
+        <span style="font-size:12px">Firma cliente</span>
       </div>
       <div class="tp-firma">
         <div class="tp-linea"></div>
-        <span>Firma vendedor</span>
+        <span style="font-size:12px">Firma vendedor</span>
       </div>
     </div>
   `;
