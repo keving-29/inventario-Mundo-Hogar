@@ -52,11 +52,15 @@ let resultadosVenta     = [];
 let resultadosVentaTodos = [];
 let ventaResultadosMostrar = 8;
 let indiceVenta         = 0;
-let resultadosTraslado  = [];
+let resultadosTraslado = [];
+let resultadosTrasladoTodos = [];
+let resultadosTrasladoMostrar = 8;
 let indiceTraslado      = 0;
 let cotizacion            = [];
 let cotizacionProductoActual = null;
 let resultadosCotizacion = [];
+let resultadosCotizacionTodos = [];
+let resultadosCotizacionMostrar = 8;
 let indiceCotizacion     = 0;
 let editandoDeudorId    = null;
 let deudorAbonoActual   = null;
@@ -88,6 +92,8 @@ let clienteCotizacion = null;
 let cotizacionMayor = [];
 let cotizacionMayorProductoActual = null;
 let resultadosCotizacionMayor = [];
+let resultadosCotizacionMayorTodos = [];
+let resultadosCotizacionMayorMostrar = 8;
 let indiceCotizacionMayor = 0;
 let clienteCotizacionMayor = null;
 let clienteDeudor = null;
@@ -652,11 +658,12 @@ function buscarProductoTraslado() {
   const q = document.getElementById('traslado-search').value.toLowerCase();
   const cont = document.getElementById('traslado-resultados');
   indiceTraslado = 0;
-  if (!q) { cont.innerHTML=''; resultadosTraslado=[]; return; }
+  resultadosTrasladoMostrar = 8;
+  if (!q) { cont.innerHTML=''; resultadosTraslado=[]; resultadosTrasladoTodos=[]; return; }
 
-  resultadosTraslado = DB.productos
-    .filter(p => productoCoincideTexto(p, q))
-    .slice(0,8);
+  resultadosTrasladoTodos = DB.productos
+    .filter(p => productoCoincideTexto(p, q));
+  resultadosTraslado = resultadosTrasladoTodos.slice(0, resultadosTrasladoMostrar);
 
   if (resultadosTraslado.length===0) { cont.innerHTML='<p style="font-size:13px;color:var(--texto2);padding:8px 0">Sin resultados</p>'; return; }
 
@@ -665,6 +672,7 @@ function buscarProductoTraslado() {
 
 function renderResultadosTraslado() {
   const cont = document.getElementById('traslado-resultados');
+  const quedan = resultadosTrasladoTodos.length - resultadosTraslado.length;
   cont.innerHTML = `
     <div style="background:var(--card);border:0.5px solid var(--borde);border-radius:12px;overflow:hidden;margin-bottom:1rem;box-shadow:var(--sombra)">
       <div style="padding:8px 12px;background:var(--blush-claro);border-bottom:0.5px solid var(--borde);font-size:11px;color:var(--texto2);font-weight:500;text-transform:uppercase;letter-spacing:0.5px">
@@ -679,7 +687,11 @@ function renderResultadosTraslado() {
           </div>
           <button class="btn-primary btn-agregar-traslado" data-id="${p.id}" style="flex-shrink:0"><i class="ti ti-plus"></i> Agregar</button>
         </div>`).join('')}
+      ${quedan>0?`<button type="button" class="btn-secundario" id="btn-ver-mas-traslado" style="width:100%;border-radius:0">Ver más resultados (${quedan} restantes)</button>`:''}
     </div>`;
+
+  const vm = document.getElementById('btn-ver-mas-traslado');
+  if (vm) vm.addEventListener('click', () => { resultadosTrasladoMostrar += 8; resultadosTraslado = resultadosTrasladoTodos.slice(0, resultadosTrasladoMostrar); renderResultadosTraslado(); });
 
   cont.querySelectorAll('.btn-agregar-traslado').forEach(b =>
     b.addEventListener('click', () => agregarATraslado(b.dataset.id)));
@@ -1125,11 +1137,12 @@ function buscarProductoCotizacion() {
   const q = document.getElementById('cotizacion-search').value.toLowerCase();
   const cont = document.getElementById('cotizacion-resultados');
   indiceCotizacion = 0;
-  if (!q) { cont.innerHTML=''; resultadosCotizacion=[]; return; }
+  resultadosCotizacionMostrar = 8;
+  if (!q) { cont.innerHTML=''; resultadosCotizacion=[]; resultadosCotizacionTodos=[]; return; }
 
-  resultadosCotizacion = DB.productos
-    .filter(p => productoCoincideTexto(p, q))
-    .slice(0,8);
+  resultadosCotizacionTodos = DB.productos
+    .filter(p => productoCoincideTexto(p, q));
+  resultadosCotizacion = resultadosCotizacionTodos.slice(0, resultadosCotizacionMostrar);
 
   if (resultadosCotizacion.length===0) { cont.innerHTML='<p style="font-size:13px;color:var(--texto2);padding:8px 0">Sin resultados</p>'; return; }
 
@@ -1138,6 +1151,7 @@ function buscarProductoCotizacion() {
 
 function renderResultadosCotizacion() {
   const cont = document.getElementById('cotizacion-resultados');
+  const quedan = resultadosCotizacionTodos.length - resultadosCotizacion.length;
   cont.innerHTML = `
     <div style="background:var(--card);border:0.5px solid var(--borde);border-radius:12px;overflow:hidden;margin-bottom:1rem;box-shadow:var(--sombra)">
       <div style="padding:8px 12px;background:var(--blush-claro);border-bottom:0.5px solid var(--borde);font-size:11px;color:var(--texto2);font-weight:500;text-transform:uppercase;letter-spacing:0.5px">
@@ -1152,7 +1166,11 @@ function renderResultadosCotizacion() {
           </div>
           <button class="btn-primary btn-agregar-cotizacion" data-id="${p.id}" style="flex-shrink:0"><i class="ti ti-plus"></i> Agregar</button>
         </div>`).join('')}
+      ${quedan>0?`<button type="button" class="btn-secundario" id="btn-ver-mas-cotizacion" style="width:100%;border-radius:0">Ver más resultados (${quedan} restantes)</button>`:''}
     </div>`;
+
+  const vm = document.getElementById('btn-ver-mas-cotizacion');
+  if (vm) vm.addEventListener('click', () => { resultadosCotizacionMostrar += 8; resultadosCotizacion = resultadosCotizacionTodos.slice(0, resultadosCotizacionMostrar); renderResultadosCotizacion(); });
 
   cont.querySelectorAll('.btn-agregar-cotizacion').forEach(b =>
     b.addEventListener('click', () => agregarACotizacion(b.dataset.id)));
@@ -1291,11 +1309,12 @@ function buscarProductoCotizacionMayor() {
   const q = document.getElementById('cotmayor-search').value.toLowerCase();
   const cont = document.getElementById('cotmayor-resultados');
   indiceCotizacionMayor = 0;
-  if (!q) { cont.innerHTML=''; resultadosCotizacionMayor=[]; return; }
+  resultadosCotizacionMayorMostrar = 8;
+  if (!q) { cont.innerHTML=''; resultadosCotizacionMayor=[]; resultadosCotizacionMayorTodos=[]; return; }
 
-  resultadosCotizacionMayor = DB.productos
-    .filter(p => productoCoincideTexto(p, q))
-    .slice(0,8);
+  resultadosCotizacionMayorTodos = DB.productos
+    .filter(p => productoCoincideTexto(p, q));
+  resultadosCotizacionMayor = resultadosCotizacionMayorTodos.slice(0, resultadosCotizacionMayorMostrar);
 
   if (resultadosCotizacionMayor.length===0) { cont.innerHTML='<p style="font-size:13px;color:var(--texto2);padding:8px 0">Sin resultados</p>'; return; }
 
@@ -1304,6 +1323,7 @@ function buscarProductoCotizacionMayor() {
 
 function renderResultadosCotizacionMayor() {
   const cont = document.getElementById('cotmayor-resultados');
+  const quedan = resultadosCotizacionMayorTodos.length - resultadosCotizacionMayor.length;
   cont.innerHTML = `
     <div style="background:var(--card);border:0.5px solid var(--borde);border-radius:12px;overflow:hidden;margin-bottom:1rem;box-shadow:var(--sombra)">
       <div style="padding:8px 12px;background:var(--blush-claro);border-bottom:0.5px solid var(--borde);font-size:11px;color:var(--texto2);font-weight:500;text-transform:uppercase;letter-spacing:0.5px">
@@ -1318,7 +1338,11 @@ function renderResultadosCotizacionMayor() {
           </div>
           <button class="btn-primary btn-agregar-cotmayor" data-id="${p.id}" style="flex-shrink:0"><i class="ti ti-plus"></i> Agregar</button>
         </div>`).join('')}
+      ${quedan>0?`<button type="button" class="btn-secundario" id="btn-ver-mas-cotmayor" style="width:100%;border-radius:0">Ver más resultados (${quedan} restantes)</button>`:''}
     </div>`;
+
+  const vm = document.getElementById('btn-ver-mas-cotmayor');
+  if (vm) vm.addEventListener('click', () => { resultadosCotizacionMayorMostrar += 8; resultadosCotizacionMayor = resultadosCotizacionMayorTodos.slice(0, resultadosCotizacionMayorMostrar); renderResultadosCotizacionMayor(); });
 
   cont.querySelectorAll('.btn-agregar-cotmayor').forEach(b =>
     b.addEventListener('click', () => agregarACotizacionMayor(b.dataset.id)));
@@ -1489,7 +1513,7 @@ function quitarClienteCotizacionMayor() {
 // BUSCADOR DE PRODUCTO (widget reutilizable: deudores / anticipos)
 // =============================================
 function inicializarBuscadorProducto(key, inputId, resultadosId, onSeleccionar) {
-  buscadoresProducto[key] = { resultados: [], indice: 0 };
+  buscadoresProducto[key] = { resultados: [], todos: [], mostrar: 8, indice: 0 };
   const input = document.getElementById(inputId);
   const cont = document.getElementById(resultadosId);
 
@@ -1509,9 +1533,12 @@ function inicializarBuscadorProducto(key, inputId, resultadosId, onSeleccionar) 
             </div>
             <button type="button" class="btn-primary btn-elegir-producto-buscado" data-idx="${i}" style="flex-shrink:0"><i class="ti ti-plus"></i> Elegir</button>
           </div>`).join('')}
+        ${estado.todos.length>estado.resultados.length?`<button type="button" class="btn-secundario btn-ver-mas-prod" style="width:100%;border-radius:0">Ver más resultados (${estado.todos.length-estado.resultados.length} restantes)</button>`:''}
       </div>`;
     cont.querySelectorAll('.btn-elegir-producto-buscado').forEach(b =>
       b.addEventListener('click', () => elegir(parseInt(b.dataset.idx))));
+    const vm = cont.querySelector('.btn-ver-mas-prod');
+    if (vm) vm.addEventListener('click', () => { estado.mostrar += 8; estado.resultados = estado.todos.slice(0, estado.mostrar); renderizar(); });
   }
 
   function elegir(i) {
@@ -1527,8 +1554,10 @@ function inicializarBuscadorProducto(key, inputId, resultadosId, onSeleccionar) 
     const q = input.value.toLowerCase();
     const estado = buscadoresProducto[key];
     estado.indice = 0;
-    if (!q) { cont.innerHTML=''; estado.resultados=[]; return; }
-    estado.resultados = DB.productos.filter(p => productoCoincideTexto(p, q)).slice(0,8);
+    estado.mostrar = 8;
+    if (!q) { cont.innerHTML=''; estado.resultados=[]; estado.todos=[]; return; }
+    estado.todos = DB.productos.filter(p => productoCoincideTexto(p, q));
+    estado.resultados = estado.todos.slice(0, estado.mostrar);
     if (estado.resultados.length===0) { cont.innerHTML = '<p style="font-size:13px;color:var(--texto2);padding:8px 0">Sin resultados</p>'; return; }
     renderizar();
   });
@@ -1546,7 +1575,7 @@ function inicializarBuscadorProducto(key, inputId, resultadosId, onSeleccionar) 
 // BUSCADOR DE CLIENTE (widget reutilizable: ventas / deudores / anticipos)
 // =============================================
 function inicializarBuscadorCliente(key, inputId, resultadosId, onSeleccionar) {
-  buscadoresCliente[key] = { resultados: [], indice: 0 };
+  buscadoresCliente[key] = { resultados: [], todos: [], mostrar: 8, indice: 0 };
   const input = document.getElementById(inputId);
   const cont = document.getElementById(resultadosId);
 
@@ -1566,9 +1595,12 @@ function inicializarBuscadorCliente(key, inputId, resultadosId, onSeleccionar) {
             </div>
             <button type="button" class="btn-primary btn-elegir-cliente-buscado" data-idx="${i}" style="flex-shrink:0"><i class="ti ti-plus"></i> Elegir</button>
           </div>`).join('')}
+        ${estado.todos.length>estado.resultados.length?`<button type="button" class="btn-secundario btn-ver-mas-cli" style="width:100%;border-radius:0">Ver más resultados (${estado.todos.length-estado.resultados.length} restantes)</button>`:''}
       </div>`;
     cont.querySelectorAll('.btn-elegir-cliente-buscado').forEach(b =>
       b.addEventListener('click', () => elegir(parseInt(b.dataset.idx))));
+    const vm = cont.querySelector('.btn-ver-mas-cli');
+    if (vm) vm.addEventListener('click', () => { estado.mostrar += 8; estado.resultados = estado.todos.slice(0, estado.mostrar); renderizar(); });
   }
 
   function elegir(i) {
@@ -1584,8 +1616,10 @@ function inicializarBuscadorCliente(key, inputId, resultadosId, onSeleccionar) {
     const q = input.value.toLowerCase();
     const estado = buscadoresCliente[key];
     estado.indice = 0;
-    if (!q) { cont.innerHTML=''; estado.resultados=[]; return; }
-    estado.resultados = DB.clientes.filter(c => c.nombre.toLowerCase().includes(q) || c.cedula.toLowerCase().includes(q)).slice(0,8);
+    estado.mostrar = 8;
+    if (!q) { cont.innerHTML=''; estado.resultados=[]; estado.todos=[]; return; }
+    estado.todos = DB.clientes.filter(c => c.nombre.toLowerCase().includes(q) || c.cedula.toLowerCase().includes(q));
+    estado.resultados = estado.todos.slice(0, estado.mostrar);
     if (estado.resultados.length===0) { cont.innerHTML = '<p style="font-size:13px;color:var(--texto2);padding:8px 0">Sin resultados. Usa "Nuevo cliente" para agregarlo.</p>'; return; }
     renderizar();
   });
